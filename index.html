@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>蛋蛋发射 - 爱心动画</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: linear-gradient(135deg, #1a0a2e, #0d0630, #050520);
+            font-family: 'Microsoft YaHei', sans-serif;
+            color: #fff;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .container {
+            max-width: 800px;
+            text-align: center;
+            padding: 20px;
+            z-index: 10;
+        }
+
+        h1 {
+            font-size: 3.5rem;
+            margin-bottom: 20px;
+            color: #ff69b4;
+            text-shadow: 0 0 15px rgba(255, 105, 180, 0.7);
+            letter-spacing: 3px;
+            animation: pulse 2s infinite;
+        }
+
+        .subtitle {
+            font-size: 1.2rem;
+            margin-bottom: 30px;
+            color: #ffb6c1;
+            opacity: 0.9;
+        }
+
+        .canvas-container {
+            position: relative;
+            margin: 20px auto;
+            border-radius: 15px;
+            overflow: hidden;
+            box-shadow: 0 0 40px rgba(255, 105, 180, 0.4);
+            border: 3px solid rgba(255, 182, 193, 0.3);
+        }
+
+        canvas {
+            display: block;
+            background-color: rgba(0, 0, 0, 0.7);
+        }
+
+        .controls {
+            margin: 25px 0;
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+
+        button {
+            background: linear-gradient(45deg, #ff69b4, #ff1493);
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            border-radius: 50px;
+            font-size: 1rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+            box-shadow: 0 5px 15px rgba(255, 105, 180, 0.4);
+        }
+
+        button:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 20px rgba(255, 105, 180, 0.6);
+        }
+
+        .footer {
+            margin-top: 30px;
+            font-size: 0.9rem;
+            color: #d8bfd8;
+            opacity: 0.7;
+        }
+
+        .hearts {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        .heart {
+            position: absolute;
+            color: rgba(255, 105, 180, 0.3);
+            font-size: 20px;
+            animation: float 8s infinite linear;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+
+        @keyframes float {
+            0% {
+                transform: translateY(100vh) rotate(0deg);
+                opacity: 0;
+            }
+            10% {
+                opacity: 0.7;
+            }
+            90% {
+                opacity: 0.7;
+            }
+            100% {
+                transform: translateY(-100px) rotate(360deg);
+                opacity: 0;
+            }
+        }
+
+        @media (max-width: 768px) {
+            h1 {
+                font-size: 2.5rem;
+            }
+            .canvas-container {
+                width: 95%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="hearts" id="hearts-container"></div>
+
+    <div class="container">
+        <h1>❤️ 蛋蛋发射 ❤️</h1>
+        <p class="subtitle">动态爱心</p>
+
+        <div class="canvas-container">
+            <canvas id="heartCanvas"></canvas>
+        </div>
+
+        <div class="controls">
+            <button id="pauseBtn">暂停/继续</button>
+            <button id="colorBtn">切换颜色</button>
+
+        </div>
+
+    </div>
+
+    <script>
+        // 配置参数
+        const CANVAS_WIDTH = 640;
+        const CANVAS_HEIGHT = 480;
+        const CANVAS_CENTER_X = CANVAS_WIDTH / 2;
+        const CANVAS_CENTER_Y = CANVAS_HEIGHT / 2;
+        const IMAGE_ENLARGE = 11;
+        const HEART_COLORS = [
+            "#FF69B4", "#FF1493", "#FF6B6B", "#FF5252",
+            "#FF4081", "#F48FB1", "#F06292", "#EC407A"
+        ];
+        let currentColorIndex = 0;
+
+        // 获取Canvas元素和上下文
+        const canvas = document.getElementById('heartCanvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = CANVAS_WIDTH;
+        canvas.height = CANVAS_HEIGHT;
+
+        // 动画控制变量
+        let animationId = null;
+        let isPaused = false;
+        let frameCount = 0;
+
+        // 创建背景爱心
+        function createBackgroundHearts() {
+            const container = document.getElementById('hearts-container');
+            for (let i = 0; i < 30; i++) {
+                const heart = document.createElement('div');
+                heart.innerHTML = '❤';
+                heart.classList.add('heart');
+
+                // 随机位置和动画延迟
+                heart.style.left = `${Math.random() * 100}%`;
+                heart.style.animationDelay = `${Math.random() * 5}s`;
+                heart.style.fontSize = `${10 + Math.random() * 20}px`;
+
+                container.appendChild(heart);
+            }
+        }
+
+        // 爱心函数
+        function heartFunction(t, shrinkRatio = IMAGE_ENLARGE) {
+            const x = 16 * (Math.sin(t) ** 3);
+            const y = -(13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t));
+
+            const scaledX = x * shrinkRatio;
+            const scaledY = y * shrinkRatio;
+
+            return [
+                scaledX + CANVAS_CENTER_X,
+                scaledY + CANVAS_CENTER_Y
+            ];
+        }
+
+        // 内部散点
+        function scatterInside(x, y, beta = 0.15) {
+            const ratioX = -beta * Math.log(Math.random());
+            const ratioY = -beta * Math.log(Math.random());
+
+            const dx = ratioX * (x - CANVAS_CENTER_X);
+            const dy = ratioY * (y - CANVAS_CENTER_Y);
+
+            return [x - dx, y - dy];
+        }
+
+        // 收缩函数
+        function shrink(x, y, ratio) {
+            const force = -1 / (((x - CANVAS_CENTER_X) ** 2 + (y - CANVAS_CENTER_Y) ** 2) ** 0.6);
+            const dx = ratio * force * (x - CANVAS_CENTER_X);
+            const dy = ratio * force * (y - CANVAS_CENTER_Y);
+            return [x - dx, y - dy];
+        }
+
+        // 曲线函数
+        function curve(p) {
+            return 2 * (2 * Math.sin(4 * p)) / (2 * Math.PI);
+        }
+
+        // 爱心类
+        class Heart {
+            constructor() {
+                this.points = new Set();
+                this.edgeDiffusionPoints = new Set();
+                this.centerDiffusionPoints = new Set();
+                this.allPoints = {};
+                this.randomHalo = 1000;
+                this.generateFrame = 20;
+                this.xOffset = 0;
+                this.yOffset = 0;
+                this.isDragging = false;
+
+                this.build(2000);
+
+                for (let frame = 0; frame < this.generateFrame; frame++) {
+                    this.calc(frame);
+                }
+
+                // 添加事件监听器
+                canvas.addEventListener('mousedown', this.handleMouseDown.bind(this));
+                canvas.addEventListener('mousemove', this.handleMouseMove.bind(this));
+                canvas.addEventListener('mouseup', this.handleMouseUp.bind(this));
+                canvas.addEventListener('mouseleave', this.handleMouseUp.bind(this));
+            }
+
+            handleMouseDown(e) {
+                this.isDragging = true;
+                const rect = canvas.getBoundingClientRect();
+                this.dragStartX = e.clientX - rect.left;
+                this.dragStartY = e.clientY - rect.top;
+            }
+
+            handleMouseMove(e) {
+                if (!this.isDragging) return;
+
+                const rect = canvas.getBoundingClientRect();
+                const mouseX = e.clientX - rect.left;
+                const mouseY = e.clientY - rect.top;
+
+                this.xOffset += (mouseX - this.dragStartX) * 0.05;
+                this.yOffset += (mouseY - this.dragStartY) * 0.05;
+
+                this.dragStartX = mouseX;
+                this.dragStartY = mouseY;
+            }
+
+            handleMouseUp() {
+                this.isDragging = false;
+            }
+
+            build(number) {
+                // 创建基础爱心点
+                for (let i = 0; i < number; i++) {
+                    const t = Math.random() * 2 * Math.PI;
+                    const [x, y] = heartFunction(t);
+                    this.points.add(`${x},${y}`);
+                }
+
+                // 创建边缘扩散点
+                this.points.forEach(point => {
+                    const [x, y] = point.split(',').map(Number);
+                    for (let j = 0; j < 3; j++) {
+                        const [newX, newY] = scatterInside(x, y, 0.05);
+                        this.edgeDiffusionPoints.add(`${newX},${newY}`);
+                    }
+                });
+
+                // 创建中心扩散点
+                const pointArray = Array.from(this.points);
+                for (let i = 0; i < 4000; i++) {
+                    const randomPoint = pointArray[Math.floor(Math.random() * pointArray.length)];
+                    const [x, y] = randomPoint.split(',').map(Number);
+                    const [newX, newY] = scatterInside(x, y, 0.17);
+                    this.centerDiffusionPoints.add(`${newX},${newY}`);
+                }
+            }
+
+            calcPosition(x, y, ratio) {
+                const force = 1 / (((x - CANVAS_CENTER_X) ** 2 + (y - CANVAS_CENTER_Y) ** 2) ** 0.520);
+                const dx = ratio * force * (x - CANVAS_CENTER_X) + (Math.random() * 2 - 1);
+                const dy = ratio * force * (y - CANVAS_CENTER_Y) + (Math.random() * 2 - 1);
+                return [x - dx, y - dy];
+            }
+
+            calc(generateFrame) {
+                const ratio = 10 * curve(generateFrame / 10 * Math.PI);
+                const haloRadius = 4 + 6 * (1 + curve(generateFrame / 10 * Math.PI));
+                const haloNumber = 3000 + 4000 * Math.abs(curve(generateFrame / 10 * Math.PI) ** 2);
+
+                const allPoints = [];
+
+                // 创建光环点
+                for (let i = 0; i < haloNumber; i++) {
+                    const t = Math.random() * 2 * Math.PI;
+                    let [x, y] = heartFunction(t, 11.6);
+                    [x, y] = shrink(x, y, haloRadius);
+                    [x, y] = this.calcPosition(x, y, ratio);
+                    allPoints.push({
+                        x: x + (Math.random() * 28 - 14),
+                        y: y + (Math.random() * 28 - 14),
+                        size: Math.floor(Math.random() * 2) + 1
+                    });
+                }
+
+                // 添加基础点
+                this.points.forEach(point => {
+                    const [x, y] = point.split(',').map(Number);
+                    const [newX, newY] = this.calcPosition(x, y, ratio);
+                    allPoints.push({
+                        x: newX,
+                        y: newY,
+                        size: Math.floor(Math.random() * 3) + 1
+                    });
+                });
+
+                // 添加边缘扩散点
+                this.edgeDiffusionPoints.forEach(point => {
+                    const [x, y] = point.split(',').map(Number);
+                    const [newX, newY] = this.calcPosition(x, y, ratio);
+                    allPoints.push({
+                        x: newX,
+                        y: newY,
+                        size: Math.floor(Math.random() * 2) + 1
+                    });
+                });
+
+                // 添加中心扩散点
+                this.centerDiffusionPoints.forEach(point => {
+                    const [x, y] = point.split(',').map(Number);
+                    const [newX, newY] = this.calcPosition(x, y, ratio);
+                    allPoints.push({
+                        x: newX,
+                        y: newY,
+                        size: Math.floor(Math.random() * 2) + 1
+                    });
+                });
+
+                this.allPoints[generateFrame] = allPoints;
+            }
+
+            render() {
+                const frame = frameCount % this.generateFrame;
+                const points = this.allPoints[frame];
+
+                // 清除画布
+                ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
+                // 绘制所有点
+                points.forEach(point => {
+                    ctx.fillStyle = HEART_COLORS[currentColorIndex];
+                    ctx.fillRect(
+                        point.x + this.xOffset,
+                        point.y + this.yOffset,
+                        point.size,
+                        point.size
+                    );
+                });
+
+                // 绘制中央文字
+                ctx.font = "bold 24px 'Microsoft YaHei', sans-serif";
+                ctx.fillStyle = "#FFFFFF";
+                ctx.textAlign = "center";
+                ctx.textBaseline = "middle";
+                ctx.fillText("蛋蛋发射", CANVAS_CENTER_X + this.xOffset, CANVAS_CENTER_Y + this.yOffset);
+            }
+        }
+
+        // 创建爱心实例
+        const heart = new Heart();
+
+        // 动画循环
+        function animate() {
+            if (!isPaused) {
+                heart.render();
+                frameCount++;
+            }
+            animationId = requestAnimationFrame(animate);
+        }
+
+        // 初始化
+        function init() {
+            createBackgroundHearts();
+            animate();
+
+            // 添加按钮事件监听器
+            document.getElementById('pauseBtn').addEventListener('click', () => {
+                isPaused = !isPaused;
+            });
+
+            document.getElementById('colorBtn').addEventListener('click', () => {
+                currentColorIndex = (currentColorIndex + 1) % HEART_COLORS.length;
+            });
+
+            document.getElementById('resetBtn').addEventListener('click', () => {
+                heart.xOffset = 0;
+                heart.yOffset = 0;
+                frameCount = 0;
+            });
+
+            document.getElementById('addBtn').addEventListener('click', () => {
+                // 添加额外的爱心效果
+                for (let i = 0; i < 5; i++) {
+                    setTimeout(() => {
+                        const heartEl = document.createElement('div');
+                        heartEl.innerHTML = '❤';
+                        heartEl.classList.add('heart');
+                        heartEl.style.left = `${Math.random() * 100}%`;
+                        heartEl.style.fontSize = `${20 + Math.random() * 30}px`;
+                        document.getElementById('hearts-container').appendChild(heartEl);
+
+                        // 移除爱心元素
+                        setTimeout(() => {
+                            heartEl.remove();
+                        }, 8000);
+                    }, i * 200);
+                }
+            });
+        }
+
+        // 页面加载完成后初始化
+        window.addEventListener('load', init);
+    </script>
+</body>
+</html>
